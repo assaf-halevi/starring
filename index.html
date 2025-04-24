@@ -31,17 +31,26 @@
             line-height: 80px;
             color: #FFD700;
             text-align: center;
-            transition: all 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
             touch-action: none;
             filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.7));
             user-select: none;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         .popping {
-            transform: scale(2.5) rotate(720deg);
-            opacity: 0;
-            filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1));
-            color: #FFFF00;
+            animation: popAndFade 0.8s forwards;
+        }
+
+        @keyframes popAndFade {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(2); opacity: 0.8; }
+            100% { transform: scale(2.5) rotate(360deg); opacity: 0; }
         }
 
         #resetStar {
@@ -55,16 +64,44 @@
             filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.8));
             cursor: pointer;
             z-index: 10;
+            transition: transform 0.3s;
+        }
+
+        #resetStar:active {
+            transform: scale(1.2);
+        }
+
+        #touchIndicator {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            display: none;
+            z-index: 20;
         }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="resetStar">★</div>
+    <div id="touchIndicator"></div>
 
     <script>
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Audio context for sound generation
+        let audioCtx;
+
+        // Initialize audio context with user gesture
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
         function playPopSound() {
+            if (!audioCtx) return;
+            
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             oscillator.connect(gainNode);
@@ -78,12 +115,37 @@
             oscillator.stop(audioCtx.currentTime + 0.2);
         }
 
-        // Twinkle sound (short base64 WAV)
-        const twinkleSound = new Audio('data:audio/wav;base64,UklGRmgBAABXQVZFZm10IBAAAAABAAEAgD4AAIA+AAABAAgAZGF0YVgBAACBgYKBgYKCg4OCgoGCgYKBgYGBgYGBgYGBgn+Af4B/gH+AfoCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCAgICAgICAgIGAgYCBgIGAgYCBgIKBgoGCgYKBgoGCgYKBgoGCgYKBgoKBgoGCgYOCg4KDgoOCg4KEgYSBhIGEgYOCg4KDgoKBgoGCgYKBgYGBgYGBgYCBgIGAgYCAgICAgIB/gH+Af4B/gH+Af4B/gICAf4B/gH+AgIB/gH+Af4B/gICAf4B/gH+AgICAgICAgIB/gH+Af4CAgH+Af4B/gICAgICAgICAgICAf4CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBf4F/gYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIGAgYCBgIJ/gn+Cf4KAgoGCgYKBgoGCgYKBgoGCgYKBgoGCgYKBgoGCgYKBgoGCgYKBgoGCgYKBgoGCgYGAgYCBgIGAgYCBgIGAgX+Bf4F/gX+Bf4F/gX+Bf4F/gX+Bf4F/gX+Bf4F/gYCBgIGAgYCBgIGAgYCBgIB/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgH+Af4B/gH+Af4B/gH+AfoCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==');
+        function playTwinkleSound() {
+            if (!audioCtx) return;
+            
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc1.connect(gainNode);
+            osc2.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc1.type = 'sine';
+            osc2.type = 'triangle';
+            
+            osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc2.frequency.setValueAtTime(1108.73, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.1);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            
+            osc1.start();
+            osc2.start();
+            osc1.stop(audioCtx.currentTime + 0.5);
+            osc2.stop(audioCtx.currentTime + 0.5);
+        }
         
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const resetStar = document.getElementById('resetStar');
+        const touchIndicator = document.getElementById('touchIndicator');
         
         // Track touch position
         let touchX = null;
@@ -107,7 +169,8 @@
                 this.speedY = (Math.random() - 0.5) * 3;
                 this.opacity = 1;
                 this.popping = false;
-                this.followStrength = 0.03 + Math.random() * 0.04; // Random follow strength
+                this.followStrength = 0.04 + Math.random() * 0.05; // Stronger follow behavior
+                this.maxSpeed = 4 + Math.random() * 3; // Varying max speeds
 
                 this.element = document.createElement('div');
                 this.element.className = 'star';
@@ -118,6 +181,7 @@
 
                 this.element.addEventListener('touchstart', (e) => {
                     e.preventDefault();
+                    initAudio();
                     if (!this.popping) {
                         this.pop();
                     }
@@ -125,6 +189,8 @@
             }
 
             pop() {
+                if (this.popping) return;
+                
                 this.popping = true;
                 this.element.classList.add('popping');
                 playPopSound();
@@ -135,62 +201,61 @@
             }
 
             update() {
-                if (!this.popping) {
-                    // If touching, follow the finger
-                    if (isTouching && touchX !== null && touchY !== null) {
-                        // Calculate direction to finger
-                        const dx = touchX - this.x - 40; // Center of star
-                        const dy = touchY - this.y - 40; // Center of star
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < 25) {
-                            // If very close to finger, pop the star
-                            this.pop();
-                            return;
-                        }
-                        
-                        // Add follow force toward finger
-                        this.speedX += dx * this.followStrength / 10;
-                        this.speedY += dy * this.followStrength / 10;
-                        
-                        // Limit speed
-                        const maxSpeed = 5;
-                        const currentSpeed = Math.sqrt(this.speedX * this.speedX + this.speedY * this.speedY);
-                        if (currentSpeed > maxSpeed) {
-                            this.speedX = (this.speedX / currentSpeed) * maxSpeed;
-                            this.speedY = (this.speedY / currentSpeed) * maxSpeed;
-                        }
-                    } else {
-                        // Slow down when not following
-                        this.speedX *= 0.98;
-                        this.speedY *= 0.98;
+                if (this.popping) return;
+                
+                // If touching, follow the finger
+                if (isTouching && touchX !== null && touchY !== null) {
+                    // Calculate direction to finger
+                    const dx = touchX - this.x - 40; // Center of star
+                    const dy = touchY - this.y - 40; // Center of star
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 30) {
+                        // If very close to finger, pop the star
+                        this.pop();
+                        return;
                     }
-
-                    let newX = this.x + this.speedX;
-                    let newY = this.y + this.speedY;
-
-                    if (newX <= 0) {
-                        newX = 0;
-                        this.speedX = Math.abs(this.speedX) * 0.8;
-                    } else if (newX >= window.innerWidth - 80) {
-                        newX = window.innerWidth - 80;
-                        this.speedX = -Math.abs(this.speedX) * 0.8;
-                    }
-
-                    if (newY <= 0) {
-                        newY = 0;
-                        this.speedY = Math.abs(this.speedY) * 0.8;
-                    } else if (newY >= window.innerHeight - 80) {
-                        newY = window.innerHeight - 80;
-                        this.speedY = -Math.abs(this.speedY) * 0.8;
-                    }
-
-                    this.x = newX;
-                    this.y = newY;
-
-                    this.element.style.left = `${this.x}px`;
-                    this.element.style.top = `${this.y}px`;
+                    
+                    // Add follow force toward finger (stronger force)
+                    this.speedX += dx * this.followStrength;
+                    this.speedY += dy * this.followStrength;
+                } else {
+                    // Slow down when not following
+                    this.speedX *= 0.97;
+                    this.speedY *= 0.97;
                 }
+
+                // Limit speed
+                const currentSpeed = Math.sqrt(this.speedX * this.speedX + this.speedY * this.speedY);
+                if (currentSpeed > this.maxSpeed) {
+                    this.speedX = (this.speedX / currentSpeed) * this.maxSpeed;
+                    this.speedY = (this.speedY / currentSpeed) * this.maxSpeed;
+                }
+
+                let newX = this.x + this.speedX;
+                let newY = this.y + this.speedY;
+
+                if (newX <= 0) {
+                    newX = 0;
+                    this.speedX = Math.abs(this.speedX) * 0.8;
+                } else if (newX >= window.innerWidth - 80) {
+                    newX = window.innerWidth - 80;
+                    this.speedX = -Math.abs(this.speedX) * 0.8;
+                }
+
+                if (newY <= 0) {
+                    newY = 0;
+                    this.speedY = Math.abs(this.speedY) * 0.8;
+                } else if (newY >= window.innerHeight - 80) {
+                    newY = window.innerHeight - 80;
+                    this.speedY = -Math.abs(this.speedY) * 0.8;
+                }
+
+                this.x = newX;
+                this.y = newY;
+
+                this.element.style.left = `${this.x}px`;
+                this.element.style.top = `${this.y}px`;
             }
         }
 
@@ -199,8 +264,18 @@
         let totalStarsCreated = initialStarCount;
 
         function spawnStar() {
-            const x = Math.random() * (window.innerWidth - 80);
-            const y = Math.random() * (window.innerHeight - 80);
+            // Spawn from edges for more interesting patterns
+            let x, y;
+            if (Math.random() < 0.5) {
+                // Spawn from left/right edges
+                x = Math.random() < 0.5 ? 0 : window.innerWidth - 80;
+                y = Math.random() * window.innerHeight;
+            } else {
+                // Spawn from top/bottom edges
+                x = Math.random() * window.innerWidth;
+                y = Math.random() < 0.5 ? 0 : window.innerHeight - 80;
+            }
+            
             const newStar = new Star(x, y);
             stars.push(newStar);
             totalStarsCreated++;
@@ -215,32 +290,46 @@
             }
         }
 
-        resetStar.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            twinkleSound.cloneNode().play(); // Clone to allow multiple plays
-            initializeStars();
-        });
+        // Visual touch indicator
+        function updateTouchIndicator(x, y) {
+            touchIndicator.style.display = 'block';
+            touchIndicator.style.left = `${x - 15}px`;  // Center the 30px wide indicator
+            touchIndicator.style.top = `${y - 15}px`;   // Center the 30px tall indicator
+        }
 
         // Touch event handlers
         document.addEventListener('touchstart', (e) => {
+            initAudio(); // Initialize audio on first touch
+            
+            isTouching = true;
+            touchX = e.touches[0].clientX;
+            touchY = e.touches[0].clientY;
+            updateTouchIndicator(touchX, touchY);
+            
             if (e.target === canvas) {
                 e.preventDefault();
-                isTouching = true;
-                touchX = e.touches[0].clientX;
-                touchY = e.touches[0].clientY;
             }
         }, { passive: false });
 
         document.addEventListener('touchmove', (e) => {
             if (isTouching) {
-                e.preventDefault();
                 touchX = e.touches[0].clientX;
                 touchY = e.touches[0].clientY;
+                updateTouchIndicator(touchX, touchY);
+                e.preventDefault();
             }
         }, { passive: false });
 
         document.addEventListener('touchend', () => {
             isTouching = false;
+            touchIndicator.style.display = 'none';
+        });
+
+        resetStar.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            initAudio();
+            playTwinkleSound();
+            initializeStars();
         });
 
         window.addEventListener('load', () => {
@@ -252,7 +341,7 @@
         const spawnInterval = 2000;
 
         function gameLoop() {
-            stars = stars.filter(star => !star.popping || star.opacity > 0);
+            stars = stars.filter(star => !star.popping);
             stars.forEach(star => star.update());
 
             const currentTime = Date.now();
