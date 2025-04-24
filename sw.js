@@ -1,10 +1,10 @@
 const cacheName = 'star-popper-cache-v1';
 const staticAssets = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon.png', // Add your icon paths here
-  '/icon-512.png'  // Add your icon paths here
+  
+  'index.html',
+  'manifest.json',
+  'icon.png', // Add your icon paths here
+  'icon-512.png'  // Add your icon paths here
 ];
 
 self.addEventListener('install', async () => {
